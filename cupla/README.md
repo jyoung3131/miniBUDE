@@ -1,16 +1,9 @@
-# miniBUDE CUDA
+# miniBUDE CUPLA
 
-This is a GPU implementation of miniBUDE using CUDA.
+This is an implementation of miniBUDE using CUPLA.
 
 ## Building
 
-Select the compiler you want to use and pass it to Make:
-
-```
-make COMPILER=GNU
-```
-
-The supported compilers names are: `CRAY`, `GNU`, `INTEL`, `PGI`.
 
 ## Running
 

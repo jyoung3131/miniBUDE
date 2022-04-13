@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <omp.h>
-#include "shared.h"
+#include "shared.hpp"
 
 #define MAX_PLATFORMS     8
 #define MAX_DEVICES      32
@@ -27,11 +27,6 @@
 #define NPNPDIST  5.5f
 #define NPPDIST   1.0f
 
-void loadParameters(int argc, char *argv[]);
-void freeParameters();
-void printTimings(double start, double end, double poses_per_wi);
-void checkError(int err, const char *op);
-void runCUPLA(float* results);
 
 FILE* openFile(const char *parent, const char *child,
                const char* mode, long *length)
@@ -63,8 +58,8 @@ int main(int argc, char *argv[])
   printf("Ligands   : %d\n", params.natlig);
   printf("Proteins  : %d\n", params.natpro);
   printf("Deck      : %s\n", params.deckDir);
-  float *resultsCUPLA = malloc(params.nposes*sizeof(float));
-  float *resultsRef = malloc(params.nposes*sizeof(float));
+  float *resultsCUPLA = (float*)malloc(params.nposes*sizeof(float));
+  float *resultsRef = (float*)malloc(params.nposes*sizeof(float));
 
   runCUPLA(resultsCUPLA);
 
@@ -200,25 +195,25 @@ void loadParameters(int argc, char *argv[])
 
   file = openFile(params.deckDir, FILE_LIGAND, "rb", &length);
   params.natlig = length / sizeof(Atom);
-  params.ligand = malloc(params.natlig*sizeof(Atom));
+  params.ligand = (Atom*)malloc(params.natlig*sizeof(Atom));
   fread(params.ligand, sizeof(Atom), params.natlig, file);
   fclose(file);
 
   file = openFile(params.deckDir, FILE_PROTEIN, "rb", &length);
   params.natpro = length / sizeof(Atom);
-  params.protein = malloc(params.natpro*sizeof(Atom));
+  params.protein = (Atom*)malloc(params.natpro*sizeof(Atom));
   fread(params.protein, sizeof(Atom), params.natpro, file);
   fclose(file);
 
   file = openFile(params.deckDir, FILE_FORCEFIELD, "rb", &length);
   params.ntypes = length / sizeof(FFParams);
-  params.forcefield = malloc(params.ntypes*sizeof(FFParams));
+  params.forcefield = (FFParams*)malloc(params.ntypes*sizeof(FFParams));
   fread(params.forcefield, sizeof(FFParams), params.ntypes, file);
   fclose(file);
 
   file = openFile(params.deckDir, FILE_POSES, "rb", &length);
   for (int i = 0; i < 6; i++)
-    params.poses[i] = malloc(nposes*sizeof(float));
+    params.poses[i] = (float*)malloc(nposes*sizeof(float));
 
   long available = length / 6 / sizeof(float);
   params.nposes = 0;

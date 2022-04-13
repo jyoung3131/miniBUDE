@@ -3,105 +3,23 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 project(bude_cupla)
 SET(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-register_model(CUPLA CUPLA CUPLAStream.cpp)
-register_model(KOKKOS KOKKOS KokkosStream.cpp)
-register_model(SYCL SYCL SYCLStream.cpp)
-register_model(ACC ACC ACCStream.cpp)
-# defining RAJA collides with the RAJA namespace so USE_RAJA
-register_model(RAJA USE_RAJA RAJAStream.cpp)
-register_model(TBB TBB TBBStream.cpp)
-
-
-set(USAGE ON CACHE BOOL "Whether to print all custom flags for the selected model")
-
-message(STATUS "Available models:  ${REGISTERED_MODELS}")
-if (NOT DEFINED MODEL)
-	    message(FATAL_ERROR "MODEL is unspecified, pick one from the available models")
-    else ()
-	        message(STATUS "Selected model  :  ${MODEL}")
-	endif ()
-
-	# load the $MODEL.cmake file and setup the correct IMPL_* based on $MODEL
-	load_model(${MODEL})
-
-if (SYCL_RUNTIME)
-
-    list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-
-    if (${SYCL_RUNTIME} STREQUAL "HIPSYCL")
-
-        if (NOT HIPSYCL_INSTALL_DIR)
-            message(FATAL_ERROR "HIPSYCL_INSTALL_DIR is undefined")
-        endif ()
-        set(hipSYCL_DIR ${HIPSYCL_INSTALL_DIR}/lib/cmake/hipSYCL)
-
-        if (NOT EXISTS "${hipSYCL_DIR}")
-            message(WARNING "Falling back to hipSYCL < 0.9.0 CMake structure")
-            set(hipSYCL_DIR ${HIPSYCL_INSTALL_DIR}/lib/cmake)
-        endif ()
-        if (NOT EXISTS "${hipSYCL_DIR}")
-            message(FATAL_ERROR "Can't find the appropriate CMake definitions for hipSYCL")
-        endif ()
-
-        find_package(hipSYCL CONFIG REQUIRED)
-     
-        set(CMAKE_CXX_STANDARD 17)
-        # add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-        set(EXTRA_FLAGS -Wno-sign-compare -Wno-stringop-truncation)
-    elseif (${SYCL_RUNTIME} STREQUAL "HIPSYCL-NEXT") # legacy, remove when no scripts depend on this 
-
-        if (NOT HIPSYCL_INSTALL_DIR)
-            message(FATAL_ERROR "HIPSYCL_INSTALL_DIR is undefined")
-        endif ()
-        set(CMAKE_CXX_STANDARD 17)
-        set(hipSYCL_DIR ${HIPSYCL_INSTALL_DIR}/lib/cmake/hipSYCL)
-        # add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-        find_package(hipSYCL CONFIG REQUIRED)
-        set(EXTRA_FLAGS -Wno-sign-compare -Wno-stringop-truncation)
-    elseif (${SYCL_RUNTIME} STREQUAL "COMPUTECPP")
-
-        if (NOT ComputeCpp_DIR)
-            message(FATAL_ERROR "ComputeCpp_DIR is undefined")
-        endif ()
-        set(OpenCL_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
-        add_definitions(-DCL_TARGET_OPENCL_VERSION=220)
-        add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-        find_package(ComputeCpp REQUIRED)
-        set(COMPUTECPP_USER_FLAGS -O3 -no-serial-memop)
-    elseif (${SYCL_RUNTIME} STREQUAL "DPCPP")
-
-        if (NOT DPCPP_BIN)
-            message(STATUS "DPCPP_BIN unspecified, using dpcpp on path")
-            set(CMAKE_CXX_COMPILER "dpcpp")
-        else()
-            set(CMAKE_CXX_COMPILER ${DPCPP_BIN})
-        endif ()
-
-        if(DPCPP_INCLUDE)
-            include_directories(${DPCPP_INCLUDE})
-        endif()
-
-        add_definitions(-DCL_TARGET_OPENCL_VERSION=220)
-        set(CMAKE_CXX_STANDARD 11)
-        set(EXTRA_FLAGS -pedantic)
-    else ()
-        message(FATAL_ERROR "SYCL_RUNTIME unsupported, must be one of HIPSYCL|HIPSYCL-NEXT|COMPUTECPP|DPCPP, got ${SYCL_RUNTIME}")
-    endif ()
-else ()
-    message(FATAL_ERROR "SYCL_RUNTIME not defined, must be one of HIPSYCL|HIPSYCL-NEXT|COMPUTECPP|DPCPP")
-endif ()
+#====CUPLA-specific includes
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+find_package(cupla REQUIRED)
+#===========================
 
 
 set(SOURCES
         src/bude.cpp
-        src/vec-pose-inner.cpp)
+        src/bude_cupla.cpp
+	src/shared.cpp)
 
-include_directories(src)
-add_executable(bude ${SOURCES})
+include_directories(src $CUPLA_INCLUDE_DIR)
+CUPLA_ADD_EXECUTABLE(bude ${SOURCES})
 
 separate_arguments(CXX_EXTRA_FLAGS)
 separate_arguments(CXX_EXTRA_LINKER_FLAGS)
@@ -132,13 +50,6 @@ endif ()
 
 add_definitions(-DNUM_TD_PER_THREAD=${NUM_TD_PER_THREAD})
 
-if (USE_PRE_SYCL121R3)
-    add_definitions(-DUSE_PRE_SYCL121R3)
-endif ()
-
-if (DISABLE_ND_RANGE)
-    add_definitions(-DDISABLE_ND_RANGE)
-endif ()
 
 set(DEBUG_OPTIONS -O2 -fno-omit-frame-pointer ${CXX_EXTRA_FLAGS})
 set(RELEASE_OPTIONS -Ofast -ffast-math -march=native -mtune=native ${CXX_EXTRA_FLAGS})
@@ -160,12 +71,5 @@ if (${CMAKE_VERSION} VERSION_LESS "3.13.0")
 else ()
     target_link_options(bude PUBLIC LINKER:${CXX_EXTRA_LINKER_FLAGS})
     target_link_options(bude PUBLIC ${CXX_EXTRA_FLAGS})
-endif ()
-
-
-if (NOT ${SYCL_RUNTIME} STREQUAL "DPCPP")
-    add_sycl_to_target(
-            TARGET bude
-            SOURCES ${SOURCES}) # must be the last
 endif ()
 

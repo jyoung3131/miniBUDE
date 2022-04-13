@@ -1,7 +1,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "shared.h"
+#include "shared.hpp"
 
 Cuda _cuda = {0};
 Params params = {0};

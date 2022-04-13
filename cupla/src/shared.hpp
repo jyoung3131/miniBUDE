@@ -3,6 +3,12 @@
 
 #define NUM_TD_PER_THREAD 4
 
+//Move function declarations here for use with cupla
+void loadParameters(int argc, char *argv[]);
+void freeParameters();
+void checkError(int err, const char *op);
+extern "C" void runCUPLA(float* results);
+
 typedef struct
 {
     float x, y, z;
